@@ -1,0 +1,150 @@
+#Installed Ubuntu Server LXC via tteck Proxmox VE Helper Scripts
+#Also see his site for helpful scripts https://tteck.github.io/Proxmox/
+
+bash -c "$(wget -qLO - https://github.com/tteck/Proxmox/raw/main/ct/ubuntu.sh)"
+
+
+#After install and update/upgrading
+
+sudo apt update
+
+sudo apt install apache2
+
+sudo ufw allow in "Apache"
+
+sudo ufw status
+
+#Results
+Output
+Status: active
+
+To                         Action      From
+--                         ------      ----
+OpenSSH                    ALLOW       Anywhere
+Apache                     ALLOW       Anywhere
+OpenSSH (v6)               ALLOW       Anywhere (v6)
+Apache (v6)                ALLOW       Anywhere (v6)
+
+sudo apt install mysql-server
+
+sudo mysql
+
+ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'password';  #password is the password
+
+exit
+
+sudo mysql_secure_installation
+
+VALIDATE PASSWORD PLUGIN can be used to test passwords
+and improve security. It checks the strength of password
+and allows the users to set only those passwords which are
+secure enough. Would you like to setup VALIDATE PASSWORD plugin?
+
+Press y|Y for Yes, any other key for No:  #Press Y
+
+When prompted, answer the questions below by following the guide.
+
+Enter current password for root (enter for none): Press the Enter
+Set root password? [Y/n]: Y
+New password: Enter password
+Re-enter new password: Repeat password
+Remove anonymous users? [Y/n]: Y
+Disallow root login remotely? [Y/n]: Y
+Remove test database and access to it? [Y/n]:  Y
+Reload privilege tables now? [Y/n]:  Y
+
+#Installing PHP and Extensions
+
+sudo apt install php libapache2-mod-php php-mysql php-gmp php-curl php-intl php-mbstring php-xmlrpc php-gd php-bcmath php-imap php-xml php-cli php-zip
+
+#Make sure the following settings are set
+#These work for most sites
+
+#sudo nano /etc/php/8.1/apache2/php.ini
+#Don't just copy and paste this into the file
+
+max_execution_time = 360
+file_uploads = On
+memory_limit = 256M
+upload_max_filesize = 100M
+allow_url_fopen = On
+short_open_tag = On
+date.timezone = America/Chicago
+
+sudo systemctl restart apache2
+
+#Create Database
+sudo mysql -u root -p
+
+CREATE DATABASE churchcrm;
+
+CREATE USER 'churchcrmuser'@'localhost' IDENTIFIED BY 'new_password_here';
+
+GRANT ALL ON churchcrm.* TO 'churchcrmuser'@'localhost' WITH GRANT OPTION;
+
+FLUSH PRIVILEGES;
+
+EXIT;
+
+#Download and copy folder
+
+sudo wget https://github.com/ChurchCRM/CRM/releases/download/5.7.0/ChurchCRM-5.7.0.zip && unzip ChurchCRM-5.7.0.zip
+
+sudo mv churchcrm /var/www/churchcrm
+
+#Set permissions
+
+sudo chown -R www-data:www-data /var/www/churchcrm/
+sudo chmod -R 755 /var/www/churchcrm/
+
+
+
+#Create churchcrm.conf file and paste text below in the the file. Replace example.com and www.example.com to the server name and alias
+
+sudo nano /etc/apache2/sites-available/churchcrm.conf
+
+<VirtualHost *:80>
+     ServerAdmin admin@example.com
+     DocumentRoot /var/www/churchcrm
+     ServerName example.com
+     ServerAlias www.example.com
+
+     <Directory /var/www/churchcrm/>
+          Options FollowSymlinks
+          AllowOverride All
+          Require all granted
+     </Directory>
+
+     ErrorLog ${APACHE_LOG_DIR}/error.log
+     CustomLog ${APACHE_LOG_DIR}/access.log combined
+</VirtualHost>
+
+#Enable the ChurchCRM and Rewrite Module
+
+sudo a2ensite churchcrm.conf
+sudo a2enmod rewrite
+sudo systemctl restart apache2
+
+# Move index.php behind DirectoryIndex Ex.
+sudo nano /etc/apache2/mods-enabled/dir.conf
+
+<IfModule mod_dir.c>
+    DirectoryIndex index.php index.html index.cgi index.pl index.xhtml index.htm
+</IfModule>
+
+sudo systemctl restart apache2
+
+#Then go to your url/ip address
+
+#When looking at the initial checklist, The Check File Integrity will fail because you
+#made the permission changes on the file folders earlier. Reference https://github.com/ChurchCRM/CRM/discussions/6909#discussioncomment-8835000
+#Don't worry about this, click the link at the bottom of the page and continue
+
+#Next, type in the MYSQL Database server name (localhost), MYSQL Server Port (Default 3306),and then put in the database info you created
+#earlier, then complete the setup
+
+
+#Initial login
+
+Username: Admin
+Password: changeme
